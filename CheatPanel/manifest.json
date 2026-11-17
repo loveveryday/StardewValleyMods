@@ -1,0 +1,9 @@
+{
+  "Name": "CheatPanel",
+  "Author": "ava",
+  "Version": "1.0.0",
+  "Description": "用 SMAPI 重写的风灵月影《星露谷物语》修改器功能，数字小键盘热键开关。",
+  "UniqueID": "ava.CheatPanel",
+  "EntryDll": "CheatPanel.dll",
+  "MinimumApiVersion": "4.0.0"
+}

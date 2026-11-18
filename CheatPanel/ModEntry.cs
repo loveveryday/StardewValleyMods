@@ -218,13 +218,13 @@ public class ModEntry : Mod
     private static void Ok(string text)
     {
         Game1.playSound("coin");
-        Toast(text, Color.DarkGreen);
+        Toast(text, new Color(60, 110, 50));
     }
 
     private static void Fail(string text)
     {
         Game1.playSound("clank");
-        Toast(text, Color.Red);
+        Toast(text, new Color(165, 55, 40));
     }
 
     private static void Toast(string text, Color color)
@@ -241,12 +241,12 @@ public class ModEntry : Mod
         for (int i = toasts.Count - 1; i >= 0; i--)
         {
             var (text, color, _) = toasts[i];
-            var size = Game1.smallFont.MeasureString(text);
+            var size = Game1.dialogueFont.MeasureString(text);
             int w = (int)size.X + 56, h = (int)size.Y + 40;
             y -= h + 8;
             int x = (Game1.uiViewport.Width - w) / 2;
             IClickableMenu.drawTextureBox(b, x, y, w, h, Color.White);
-            Utility.drawTextWithShadow(b, text, Game1.smallFont, new Vector2(x + 28, y + 20), color);
+            Utility.drawTextWithShadow(b, text, Game1.dialogueFont, new Vector2(x + 28, y + 20), color);
         }
     }
 

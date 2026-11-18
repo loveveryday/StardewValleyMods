@@ -33,7 +33,7 @@ internal class TrainerMenu : IClickableMenu
         ["MoveSpeed"] = nameof(ModConfig.MoveSpeed),
         ["GameSpeed"] = nameof(ModConfig.GameSpeed),
     };
-    private static readonly string[] QualityNames = { "无星", "银星", "金星", "紫星" };
+    internal static readonly string[] QualityNames = { "无星", "银星", "金星", "紫星" };
 
     private readonly Action<string, string> trigger;
     private readonly Action save;

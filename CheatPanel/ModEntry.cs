@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewModdingAPI.Utilities;
@@ -86,7 +88,18 @@ public class ModEntry : Mod
 
     internal static ModConfig cfg = new();
     private static readonly HashSet<string> active = new();
-    private static int pendingAmount, pendingQuality = -1;
+    // 待执行的悬停物品编辑：按下热键后，下一个弹出提示框的物品会被校验并修改
+    private static string? pendingId, pendingName;
+    private static int pendingUntil;
+    // 最近一次弹出提示框的物品，用来判断按下热键时鼠标是否正悬停在物品上
+    private static Item? hovered;
+    private static int hoveredTick = -100;
+    private static readonly List<(string Text, Color Color, int Until)> toasts = new();
+    private static readonly HashSet<int> QualityCategories = new()
+    {
+        SObject.VegetableCategory, SObject.FruitsCategory, SObject.flowersCategory, SObject.GreensCategory,
+        SObject.FishCategory, SObject.EggCategory, SObject.MilkCategory, SObject.sellAtPierresAndMarnies, SObject.artisanGoodsCategory,
+    };
     private static bool hotkeysEnabled = true;
     private (string Id, string Name, KeybindList Keys)[] bindings = Array.Empty<(string, string, KeybindList)>();
 
@@ -105,8 +118,11 @@ public class ModEntry : Mod
         helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
         helper.Events.GameLoop.OneSecondUpdateTicked += OnOneSecond;
         helper.Events.GameLoop.DayStarted += OnDayStarted;
-        helper.Events.GameLoop.ReturnedToTitle += (_, _) => { active.Clear(); ApplyGameSpeed(); };
+        helper.Events.GameLoop.ReturnedToTitle += (_, _) => { active.Clear(); pendingId = null; toasts.Clear(); ApplyGameSpeed(); };
         helper.Events.Content.AssetRequested += OnAssetRequested;
+        // 原版 HUD 消息固定在左下角，这里自己画在屏幕下方居中；打开菜单时画在菜单之上
+        helper.Events.Display.RenderedHud += (_, e) => { if (Game1.activeClickableMenu == null) DrawToasts(e.SpriteBatch); };
+        helper.Events.Display.RenderedActiveMenu += (_, e) => DrawToasts(e.SpriteBatch);
 
         var h = new Harmony(ModManifest.UniqueID);
         h.Patch(AccessTools.Method(typeof(Farmer), nameof(Farmer.takeDamage)), prefix: new(typeof(ModEntry), nameof(TakeDamagePrefix)));
@@ -114,7 +130,7 @@ public class ModEntry : Mod
         h.Patch(AccessTools.Method(typeof(Farmer), nameof(Farmer.changeFriendship)), prefix: new(typeof(ModEntry), nameof(FriendshipPrefix)));
         h.Patch(AccessTools.Method(typeof(Farmer), nameof(Farmer.getMovementSpeed)), postfix: new(typeof(ModEntry), nameof(MoveSpeedPostfix)));
         h.Patch(AccessTools.Method(typeof(Axe), nameof(Axe.DoFunction)), prefix: new(typeof(ModEntry), nameof(AxePrefix)), postfix: new(typeof(ModEntry), nameof(AxePostfix)));
-        h.Patch(AccessTools.Method(typeof(SObject), nameof(SObject.getCategoryName)), postfix: new(typeof(ModEntry), nameof(HoverPostfix)));
+        h.Patch(AccessTools.Method(typeof(IClickableMenu), nameof(IClickableMenu.drawToolTip)), prefix: new(typeof(ModEntry), nameof(ToolTipPrefix)));
         // 取参数最多的重载（真正的实现），短重载会转调它，避免倍率被叠加两次
         var damageMonster = typeof(GameLocation).GetMethods()
             .Where(m => m.Name == nameof(GameLocation.damageMonster))
@@ -157,15 +173,32 @@ public class ModEntry : Mod
         var p = Game1.player;
         if (OneShots.Contains(id))
         {
+            int value = id switch
+            {
+                "Money" => cfg.Money, "QiCoins" => cfg.QiCoins, "QiGems" => cfg.QiGems,
+                "ItemAmount" => cfg.ItemAmount, _ => cfg.ItemQuality,
+            };
+            if (value < 0 || (id == "ItemAmount" && value < 1) || (id == "ItemQuality" && value is < 1 or > 4))
+            {
+                Fail($"{name}：数值 {value} 无效，已取消");
+                return;
+            }
             switch (id)
             {
-                case "Money": p.Money = cfg.Money; break;
-                case "QiCoins": p.clubCoins = cfg.QiCoins; break;
-                case "QiGems": p.QiGems = cfg.QiGems; break;
-                case "ItemAmount": pendingAmount = cfg.ItemAmount; break;
-                case "ItemQuality": pendingQuality = new[] { 0, 1, 2, 4 }[Math.Clamp(cfg.ItemQuality, 1, 4) - 1]; break;
+                case "Money": p.Money = value; break;
+                case "QiCoins": p.clubCoins = value; break;
+                case "QiGems": p.QiGems = value; break;
+                default:
+                    if (hovered != null && Game1.ticks - hoveredTick <= 2 && InPlayerStorage(hovered))
+                    {
+                        ApplyEdit(id, name, hovered);
+                        return;
+                    }
+                    (pendingId, pendingName, pendingUntil) = (id, name, Game1.ticks + 600);
+                    Hud($"{name}：请在 10 秒内把鼠标悬停到背包或箱子里的物品上");
+                    return;
             }
-            Hud(id.StartsWith("Item") ? $"{name}：请把鼠标悬停到物品上" : $"{name}：已设置");
+            Ok($"{name}：已设置为 {value}");
             return;
         }
 
@@ -180,7 +213,42 @@ public class ModEntry : Mod
         }
     }
 
-    private static void Hud(string text) => Game1.addHUDMessage(new HUDMessage(text) { noIcon = true });
+    private static void Hud(string text) => Toast(text, Game1.textColor);
+
+    private static void Ok(string text)
+    {
+        Game1.playSound("coin");
+        Toast(text, Color.DarkGreen);
+    }
+
+    private static void Fail(string text)
+    {
+        Game1.playSound("clank");
+        Toast(text, Color.Red);
+    }
+
+    private static void Toast(string text, Color color)
+    {
+        toasts.Add((text, color, Game1.ticks + 240)); // 约 4 秒
+        if (toasts.Count > 5) toasts.RemoveAt(0);
+    }
+
+    /// <summary>在屏幕下方居中、工具栏之上，自下而上堆叠显示提示（最新的在最下面）。</summary>
+    private static void DrawToasts(SpriteBatch b)
+    {
+        toasts.RemoveAll(t => Game1.ticks > t.Until);
+        int y = Game1.uiViewport.Height - 136; // 给底部工具栏留出位置
+        for (int i = toasts.Count - 1; i >= 0; i--)
+        {
+            var (text, color, _) = toasts[i];
+            var size = Game1.smallFont.MeasureString(text);
+            int w = (int)size.X + 56, h = (int)size.Y + 40;
+            y -= h + 8;
+            int x = (Game1.uiViewport.Width - w) / 2;
+            IClickableMenu.drawTextureBox(b, x, y, w, h, Color.White);
+            Utility.drawTextWithShadow(b, text, Game1.smallFont, new Vector2(x + 28, y + 20), color);
+        }
+    }
 
     internal static void ApplyGameSpeed()
     {
@@ -191,6 +259,11 @@ public class ModEntry : Mod
 
     private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
     {
+        if (pendingId != null && Game1.ticks > pendingUntil)
+        {
+            Fail($"{pendingName}：10 秒内没有悬停到物品，已取消");
+            pendingId = null;
+        }
         if (!Context.IsWorldReady || active.Count == 0)
             return;
         var p = Game1.player;
@@ -312,11 +385,50 @@ public class ModEntry : Mod
         if (__state) __instance.additionalPower.Value -= 1000;
     }
 
-    // 原修改器同样挂在 getCategoryName 上：悬停提示框会调用它
-    private static void HoverPostfix(SObject __instance)
+    // 所有物品提示框（背包、箱子、工具栏、商店）都走 drawToolTip，第 4 个参数是悬停的物品
+    private static void ToolTipPrefix(Item? __3)
     {
-        if (pendingAmount > 0) { __instance.Stack = pendingAmount; pendingAmount = 0; }
-        if (pendingQuality >= 0) { __instance.Quality = pendingQuality; pendingQuality = -1; }
+        if (__3 == null)
+            return;
+        (hovered, hoveredTick) = (__3, Game1.ticks);
+        if (pendingId != null)
+            ApplyEdit(pendingId, pendingName!, __3);
+    }
+
+    private static void ApplyEdit(string id, string name, Item item)
+    {
+        pendingId = null;
+        string? error = EditItem(id, item, out string done);
+        if (error != null) Fail($"{name}：{error}，已取消");
+        else Ok($"{name}：{done}");
+    }
+
+    private static bool InPlayerStorage(Item item) =>
+        Game1.player.Items.Contains(item) || (Game1.activeClickableMenu as ItemGrabMenu)?.ItemsToGrabMenu?.actualInventory.Contains(item) == true;
+
+    /// <returns>不能修改时返回原因；成功时返回 null，并通过 done 给出结果。</returns>
+    private static string? EditItem(string id, Item item, out string done)
+    {
+        done = "";
+        string label = $"「{item.DisplayName}」";
+        if (!InPlayerStorage(item))
+            return $"{label}不在背包或箱子里";
+
+        if (id == "ItemAmount")
+        {
+            int max = item.maximumStackSize();
+            if (max <= 1)
+                return $"{label}不能堆叠，无法修改数量";
+            item.Stack = Math.Min(cfg.ItemAmount, max);
+            done = item.Stack < cfg.ItemAmount ? $"{label}数量已设为上限 {item.Stack}" : $"{label}数量已设为 {item.Stack}";
+            return null;
+        }
+
+        if (item is not SObject obj || obj.bigCraftable.Value || !QualityCategories.Contains(obj.Category))
+            return $"{label}没有品质，无法修改";
+        obj.Quality = new[] { 0, 1, 2, 4 }[cfg.ItemQuality - 1];
+        done = $"{label}品质已设为{TrainerMenu.QualityNames[cfg.ItemQuality - 1]}";
+        return null;
     }
 
     // damageMonster(区域, 最小伤害, 最大伤害, 是否炸弹, 击退, 精准, 暴击率, 暴击倍数, ...)

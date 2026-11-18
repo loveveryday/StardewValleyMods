@@ -1,0 +1,9 @@
+{
+  "Name": "WindowScaler",
+  "Author": "ava",
+  "Version": "1.0.0",
+  "Description": "窗口模式下按 Ctrl + =/- 按倍数缩放游戏窗口，并记住上次的大小。",
+  "UniqueID": "ava.WindowScaler",
+  "EntryDll": "WindowScaler.dll",
+  "MinimumApiVersion": "4.0.0"
+}

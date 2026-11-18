@@ -20,6 +20,12 @@ public class ModConfig
     public Dictionary<string, KeybindList> Hotkeys { get; set; } =
         ModEntry.Features.ToDictionary(f => f.Id, f => KeybindList.Parse(f.Key));
 
+    /// <summary>禁用/恢复其它全部热键（已开启的功能保持不变）</summary>
+    /// <summary>打开/关闭修改器面板</summary>
+    public KeybindList OpenMenu { get; set; } = KeybindList.Parse("F8");
+
+    public KeybindList ToggleHotkeys { get; set; } = KeybindList.Parse("LeftControl + LeftShift + Home");
+
     public int Money { get; set; } = 99999999;
     public int QiCoins { get; set; } = 99999999;
     public int QiGems { get; set; } = 999;
@@ -46,7 +52,7 @@ public class ModEntry : Mod
         ("InfHealth", "无限生命", "NumPad2"),
         ("InfStamina", "无限体力", "NumPad3"),
         ("InfWater", "无限水壶", "NumPad4"),
-        ("DropRate", "100% 掉落率（对之后刷出的怪物生效）", "NumPad5"),
+        ("DropRate", "100% 掉落率（新刷出的怪物生效）", "NumPad5"),
         ("Critical", "100% 暴击率", "NumPad6"),
         ("MoveSpeed", "移动速度倍率", "NumPad7"),
         ("GameSpeed", "游戏速度", "NumPad8"),
@@ -57,8 +63,8 @@ public class ModEntry : Mod
         ("Money", "编辑金钱", "LeftControl + NumPad1"),
         ("QiCoins", "编辑齐币", "LeftControl + NumPad2"),
         ("QiGems", "编辑齐钻", "LeftControl + NumPad3"),
-        ("ItemAmount", "编辑鼠标指向物品数量（悬停物品）", "LeftControl + NumPad4"),
-        ("ItemQuality", "编辑鼠标指向物品品质（悬停物品）", "LeftControl + NumPad5"),
+        ("ItemAmount", "编辑悬停物品数量", "LeftControl + NumPad4"),
+        ("ItemQuality", "编辑悬停物品品质", "LeftControl + NumPad5"),
         ("FreezeTime", "冻结时间", "LeftControl + NumPad6"),
         ("TimeSpeed", "时间流逝速度", "LeftControl + NumPad7"),
         ("NoClip", "穿墙模式", "LeftAlt + NumPad1"),
@@ -76,14 +82,15 @@ public class ModEntry : Mod
         ("InstantCatch", "钓鱼：瞬间钓起", "LeftShift + F6"),
     };
 
-    private static readonly HashSet<string> OneShots = new() { "Money", "QiCoins", "QiGems", "ItemAmount", "ItemQuality" };
+    internal static readonly HashSet<string> OneShots = new() { "Money", "QiCoins", "QiGems", "ItemAmount", "ItemQuality" };
 
-    private static ModConfig cfg = new();
+    internal static ModConfig cfg = new();
     private static readonly HashSet<string> active = new();
     private static int pendingAmount, pendingQuality = -1;
+    private static bool hotkeysEnabled = true;
     private (string Id, string Name, KeybindList Keys)[] bindings = Array.Empty<(string, string, KeybindList)>();
 
-    private static bool On(string id) => active.Contains(id);
+    internal static bool On(string id) => active.Contains(id);
 
     public override void Entry(IModHelper helper)
     {
@@ -119,6 +126,21 @@ public class ModEntry : Mod
     {
         // 菜单打开时也响应（编辑悬停物品需要开着背包），但正在输入文字时不响应
         if (!Context.IsWorldReady || Game1.keyboardDispatcher.Subscriber != null)
+            return;
+
+        if (cfg.ToggleHotkeys.JustPressed())
+        {
+            hotkeysEnabled = !hotkeysEnabled;
+            Hud($"修改器热键：{(hotkeysEnabled ? "已启用" : "已禁用")}");
+            return;
+        }
+        if (cfg.OpenMenu.JustPressed())
+        {
+            if (Game1.activeClickableMenu is TrainerMenu menu) menu.exitThisMenu();
+            else if (Context.IsPlayerFree) Game1.activeClickableMenu = new TrainerMenu(Trigger, () => Helper.WriteConfig(cfg));
+            return;
+        }
+        if (!hotkeysEnabled)
             return;
 
         foreach (var (id, name, keys) in bindings)
@@ -160,7 +182,7 @@ public class ModEntry : Mod
 
     private static void Hud(string text) => Game1.addHUDMessage(new HUDMessage(text) { noIcon = true });
 
-    private static void ApplyGameSpeed()
+    internal static void ApplyGameSpeed()
     {
         // shortcut: 只提高每秒逻辑帧数，依赖游戏使用固定时间步长；按真实毫秒计时的部分（如时钟）不会加速，需要时改为补丁 Game1.Update
         float speed = On("GameSpeed") ? Math.Max(0.1f, cfg.GameSpeed) : 1f;

@@ -45,7 +45,7 @@ public class ModConfig
     public float GameSpeed { get; set; } = 2.5f;
 }
 
-public class ModEntry : Mod
+public partial class ModEntry : Mod
 {
     // 热键布局照搬原修改器：数字键 / Ctrl+数字键 / Alt+数字键 / Shift+F1~F6
     public static readonly (string Id, string Name, string Key)[] Features =
@@ -150,12 +150,9 @@ public class ModEntry : Mod
             Monitor.Log($"数字输入框自检失败：{failed}", LogLevel.Error);
         else
             Monitor.Log("数字输入框自检通过", LogLevel.Trace);
-        // 组合键优先匹配，按 Ctrl+NumPad1 时不会同时触发 NumPad1
-        bindings = Features
-            .Select(f => (f.Id, f.Name, Keys: cfg.Hotkeys.GetValueOrDefault(f.Id) ?? new KeybindList()))
-            .OrderByDescending(b => b.Keys.Keybinds.Select(k => k.Buttons.Length).DefaultIfEmpty(0).Max())
-            .ToArray();
+        RebuildBindings();
 
+        helper.Events.GameLoop.GameLaunched += (_, _) => RegisterConfigMenu();
         helper.Events.Input.ButtonsChanged += OnButtonsChanged;
         helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
         helper.Events.GameLoop.OneSecondUpdateTicked += OnOneSecond;
@@ -178,6 +175,16 @@ public class ModEntry : Mod
             .Where(m => m.Name == nameof(GameLocation.damageMonster))
             .OrderByDescending(m => m.GetParameters().Length).First();
         h.Patch(damageMonster, prefix: new(typeof(ModEntry), nameof(DamageMonsterPrefix)));
+    }
+
+    /// <summary>按配置重建热键表；热键在 GMCM 里改过之后也要调用。</summary>
+    private void RebuildBindings()
+    {
+        // 组合键优先匹配，按 Ctrl+NumPad1 时不会同时触发 NumPad1
+        bindings = Features
+            .Select(f => (f.Id, f.Name, Keys: cfg.Hotkeys.GetValueOrDefault(f.Id) ?? new KeybindList()))
+            .OrderByDescending(b => b.Keys.Keybinds.Select(k => k.Buttons.Length).DefaultIfEmpty(0).Max())
+            .ToArray();
     }
 
     private void OnButtonsChanged(object? sender, ButtonsChangedEventArgs e)

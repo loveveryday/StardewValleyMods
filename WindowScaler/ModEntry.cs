@@ -26,7 +26,7 @@ public class WindowState
     public int ScaleIndex { get; set; } = 1;
 }
 
-public class ModEntry : Mod
+public partial class ModEntry : Mod
 {
     private const string StateFile = "window.json";
     private static readonly float[] Scales = { 0.5f, 1f, 1.5f, 2f, 2.5f, 3f, 3.5f, 4f };
@@ -39,6 +39,7 @@ public class ModEntry : Mod
     {
         config = helper.ReadConfig<ModConfig>();
         state = helper.Data.ReadJsonFile<WindowState>(StateFile) ?? new WindowState();
+        helper.Events.GameLoop.GameLaunched += (_, _) => RegisterConfigMenu();
         helper.Events.GameLoop.UpdateTicked += RestoreWindowOnce;
         helper.Events.Input.ButtonsChanged += OnButtonsChanged;
         // 自己画提示：屏幕下方居中、工具栏之上；打开菜单时画在菜单之上

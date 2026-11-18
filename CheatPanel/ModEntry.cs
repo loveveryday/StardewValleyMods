@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using HarmonyLib;
 using Microsoft.Xna.Framework;
@@ -54,7 +55,7 @@ public class ModEntry : Mod
         ("InfHealth", "无限生命", "NumPad2"),
         ("InfStamina", "无限体力", "NumPad3"),
         ("InfWater", "无限水壶", "NumPad4"),
-        ("DropRate", "100% 掉落率（新刷出的怪物生效）", "NumPad5"),
+        ("DropRate", "100% 掉落率（仅新刷怪）", "NumPad5"),
         ("Critical", "100% 暴击率", "NumPad6"),
         ("MoveSpeed", "移动速度倍率", "NumPad7"),
         ("GameSpeed", "游戏速度", "NumPad8"),
@@ -84,6 +85,43 @@ public class ModEntry : Mod
         ("InstantCatch", "钓鱼：瞬间钓起", "LeftShift + F6"),
     };
 
+    /// <summary>一次性数值的允许范围，热键和面板共用。</summary>
+    internal static readonly Dictionary<string, (int Min, int Max)> IntRanges = new()
+    {
+        ["Money"] = (0, 99_999_999),
+        ["QiCoins"] = (0, 99_999_999),
+        ["QiGems"] = (0, 999),
+        ["ItemAmount"] = (1, 999), // 0 会把整组物品清空，所以最少为 1
+        ["ItemQuality"] = (1, 4),
+    };
+
+    /// <summary>用输入框录入的倍率及其允许范围，热键和面板共用。</summary>
+    internal static readonly Dictionary<string, (float Min, float Max)> FloatRanges = new()
+    {
+        ["MoveSpeed"] = (0, 100),
+        ["GameSpeed"] = (0, 100),
+        ["Defense"] = (0, 100),
+        ["Knockback"] = (0, 100),
+        ["DamageMul"] = (0, 100),
+        ["TimeSpeed"] = (0, 100),
+    };
+
+    /// <summary>开关类功能对应的倍率；没有倍率的功能返回 null。</summary>
+    internal static float? FloatValue(string id) => id switch
+    {
+        "MoveSpeed" => cfg.MoveSpeed,
+        "GameSpeed" => cfg.GameSpeed,
+        "Defense" => cfg.DefenseMultiplier,
+        "Knockback" => cfg.KnockbackMultiplier,
+        "DamageMul" => cfg.DamageMultiplier,
+        "TimeSpeed" => cfg.TimeSpeed,
+        "ExpMul" => cfg.ExpMultiplier,
+        "FriendshipMul" => cfg.FriendshipMultiplier,
+        _ => null,
+    };
+
+    internal static string FormatFloat(float value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+
     internal static readonly HashSet<string> OneShots = new() { "Money", "QiCoins", "QiGems", "ItemAmount", "ItemQuality" };
 
     internal static ModConfig cfg = new();
@@ -100,7 +138,7 @@ public class ModEntry : Mod
         SObject.VegetableCategory, SObject.FruitsCategory, SObject.flowersCategory, SObject.GreensCategory,
         SObject.FishCategory, SObject.EggCategory, SObject.MilkCategory, SObject.sellAtPierresAndMarnies, SObject.artisanGoodsCategory,
     };
-    private static bool hotkeysEnabled = true;
+    internal static bool hotkeysEnabled = true;
     private (string Id, string Name, KeybindList Keys)[] bindings = Array.Empty<(string, string, KeybindList)>();
 
     internal static bool On(string id) => active.Contains(id);
@@ -108,6 +146,10 @@ public class ModEntry : Mod
     public override void Entry(IModHelper helper)
     {
         cfg = helper.ReadConfig<ModConfig>();
+        if (TrainerMenu.SelfCheck() is string failed)
+            Monitor.Log($"数字输入框自检失败：{failed}", LogLevel.Error);
+        else
+            Monitor.Log("数字输入框自检通过", LogLevel.Trace);
         // 组合键优先匹配，按 Ctrl+NumPad1 时不会同时触发 NumPad1
         bindings = Features
             .Select(f => (f.Id, f.Name, Keys: cfg.Hotkeys.GetValueOrDefault(f.Id) ?? new KeybindList()))
@@ -146,8 +188,7 @@ public class ModEntry : Mod
 
         if (cfg.ToggleHotkeys.JustPressed())
         {
-            hotkeysEnabled = !hotkeysEnabled;
-            Hud($"修改器热键：{(hotkeysEnabled ? "已启用" : "已禁用")}");
+            ToggleHotkeys();
             return;
         }
         if (cfg.OpenMenu.JustPressed())
@@ -178,9 +219,10 @@ public class ModEntry : Mod
                 "Money" => cfg.Money, "QiCoins" => cfg.QiCoins, "QiGems" => cfg.QiGems,
                 "ItemAmount" => cfg.ItemAmount, _ => cfg.ItemQuality,
             };
-            if (value < 0 || (id == "ItemAmount" && value < 1) || (id == "ItemQuality" && value is < 1 or > 4))
+            var (min, max) = IntRanges[id];
+            if (value < min || value > max)
             {
-                Fail($"{name}：数值 {value} 无效，已取消");
+                Fail($"{name}：数值 {value} 超出范围 {min}–{max}，已取消");
                 return;
             }
             switch (id)
@@ -202,8 +244,14 @@ public class ModEntry : Mod
             return;
         }
 
+        float? rate = FloatValue(id);
+        if (!active.Contains(id) && rate is float v && FloatRanges.TryGetValue(id, out var range) && (v < range.Min || v > range.Max))
+        {
+            Fail($"{name}：数值 {FormatFloat(v)} 超出范围 {FormatFloat(range.Min)}–{FormatFloat(range.Max)}，未开启");
+            return;
+        }
         bool on = active.Add(id) || !active.Remove(id);
-        Hud($"{name}：{(on ? "开启" : "关闭")}");
+        Hud($"{name}：{(on ? "开启" : "关闭")}{(rate is float shown ? $"（x{FormatFloat(shown)}）" : "")}");
 
         switch (id)
         {
@@ -211,6 +259,12 @@ public class ModEntry : Mod
             case "GameSpeed": ApplyGameSpeed(); break;
             case "DropRate": Helper.GameContent.InvalidateCache("Data/Monsters"); break;
         }
+    }
+
+    internal static void ToggleHotkeys()
+    {
+        hotkeysEnabled = !hotkeysEnabled;
+        Hud($"修改器热键：{(hotkeysEnabled ? "已启用" : "已禁用")}");
     }
 
     private static void Hud(string text) => Toast(text, Game1.textColor);

@@ -1,0 +1,9 @@
+{
+  "Name": "AutoDoor",
+  "Author": "ava",
+  "Version": "1.0.0",
+  "Description": "走到房子门口时自动开门进屋，不用再点门。",
+  "UniqueID": "ava.AutoDoor",
+  "EntryDll": "AutoDoor.dll",
+  "MinimumApiVersion": "4.0.0"
+}

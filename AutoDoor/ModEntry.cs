@@ -6,8 +6,15 @@ using StardewValley;
 
 namespace AutoDoor;
 
-public class ModEntry : Mod
+public class ModConfig
 {
+    public bool Enabled { get; set; } = true;
+}
+
+public partial class ModEntry : Mod
+{
+    private ModConfig config = new();
+
     // 地图门的 Action 名：这些本来要右键点，现在走过去顶住就触发
     private static readonly HashSet<string> DoorActions = new()
     {
@@ -19,13 +26,15 @@ public class ModEntry : Mod
 
     public override void Entry(IModHelper helper)
     {
+        config = helper.ReadConfig<ModConfig>();
+        helper.Events.GameLoop.GameLaunched += (_, _) => RegisterConfigMenu();
         helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
     }
 
     private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
     {
         Farmer player = Game1.player;
-        if (!Context.IsPlayerFree || !player.isMoving())
+        if (!config.Enabled || !Context.IsPlayerFree || !player.isMoving())
         {
             lastTrigger = null;
             return;

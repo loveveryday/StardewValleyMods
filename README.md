@@ -12,6 +12,7 @@
 | [WindowScaler](WindowScaler/) | 窗口模式下按 Ctrl + `=` / `-` 按倍数缩放游戏窗口，并记住上次的大小。 |
 | [HotkeyFinder](HotkeyFinder/) | 列出所有已加载 MOD 和原版游戏的快捷键，并标出冲突。游戏里按 F9 打开列表，也可以在 SMAPI 控制台输入 `hotkeys`。 |
 | [LocalizedDebugSearch](LocalizedDebugSearch/) | 让 `debug` 命令按名字查找物品、NPC 和地点时，也能用当前游戏语言的名字，比如 `debug f 防风草`、`debug warpcharacter 阿比盖尔`。英文名照样能用。 |
+| [InGameConsole](InGameConsole/) | 游戏内控制台：按 Ctrl + `/` 打开，可以执行 SMAPI 命令和 `debug` 命令，支持 emacs 键、Ctrl + R 历史搜索和 Tab 补全，命令历史和 SMAPI 控制台共用。窗口可以拖动和调整大小，Ctrl + `=` / `-` 调整字号。只能配合[本地编译的 SMAPI](https://github.com/loveveryday/SMAPI) 使用。 |
 
 除 LocalizedDebugSearch（没有配置项）外，每个 MOD 都支持 [Generic Mod Config Menu](https://www.nexusmods.com/stardewvalley/mods/5098)（可选），装了它就能在游戏里改配置；没装的话改 MOD 目录下的 `config.json`。
 

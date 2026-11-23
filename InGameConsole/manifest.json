@@ -1,0 +1,9 @@
+{
+  "Name": "InGameConsole",
+  "Author": "ava",
+  "Version": "1.0.0",
+  "Description": "游戏内控制台：执行 SMAPI 命令和 debug 命令，支持 emacs 键、Ctrl+R 历史搜索和 Tab 补全。只能配合本地编译的 SMAPI 使用。",
+  "UniqueID": "ava.InGameConsole",
+  "EntryDll": "InGameConsole.dll",
+  "MinimumApiVersion": "4.0.0"
+}

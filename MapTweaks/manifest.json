@@ -1,0 +1,9 @@
+{
+  "Name": "MapTweaks",
+  "Author": "ava",
+  "Version": "1.0.0",
+  "Description": "地图调整：按 M 打开地图后点空白处不跳背包；从菜单切到地图时，按 ESC、菜单键或关闭按钮回到菜单。每项都能在 GMCM 里单独开关。",
+  "UniqueID": "ava.MapTweaks",
+  "EntryDll": "MapTweaks.dll",
+  "MinimumApiVersion": "4.0.0"
+}

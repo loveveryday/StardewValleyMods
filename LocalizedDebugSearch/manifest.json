@@ -1,0 +1,9 @@
+{
+  "Name": "LocalizedDebugSearch",
+  "Author": "ava",
+  "Version": "1.0.0",
+  "Description": "让 debug 命令按名字查找物品、NPC 和地点时，也能用当前游戏语言的名字，比如 debug f 防风草、debug warpcharacter 阿比盖尔。",
+  "UniqueID": "ava.LocalizedDebugSearch",
+  "EntryDll": "LocalizedDebugSearch.dll",
+  "MinimumApiVersion": "4.0.0"
+}

@@ -1,4 +1,4 @@
-# StardewValleyMod
+# StardewValleyMods
 
 几个自用的 SMAPI MOD。本文件只记录术语。
 

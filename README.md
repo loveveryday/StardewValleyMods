@@ -10,6 +10,7 @@
 | [MapTweaks](MapTweaks/) | 按 M 打开地图后，点空白处不再跳到背包；从菜单其他标签页切到地图时，按 ESC、菜单键或关闭按钮回到原来的标签页，而不是关掉整个菜单。每项都能单独开关。 |
 | [CheatPanel](CheatPanel/) | 修改器：无敌、无限体力、移动速度、游戏速度等功能，用数字小键盘热键开关，按 F8 打开面板。 |
 | [WindowScaler](WindowScaler/) | 窗口模式下按 Ctrl + `=` / `-` 按倍数缩放游戏窗口，并记住上次的大小。 |
+| [HotkeyFinder](HotkeyFinder/) | 列出所有已加载 MOD 和原版游戏的快捷键，并标出冲突。游戏里按 F9 打开列表，也可以在 SMAPI 控制台输入 `hotkeys`。 |
 
 每个 MOD 都支持 [Generic Mod Config Menu](https://www.nexusmods.com/stardewvalley/mods/5098)（可选），装了它就能在游戏里改配置；没装的话改 MOD 目录下的 `config.json`。
 

@@ -1,0 +1,9 @@
+{
+  "Name": "HotkeyFinder",
+  "Author": "ava",
+  "Version": "1.0.0",
+  "Description": "列出所有已加载 MOD 和原版游戏的快捷键，标出冲突。控制台命令 hotkeys，游戏内按 F9。",
+  "UniqueID": "ava.HotkeyFinder",
+  "EntryDll": "HotkeyFinder.dll",
+  "MinimumApiVersion": "4.0.0"
+}

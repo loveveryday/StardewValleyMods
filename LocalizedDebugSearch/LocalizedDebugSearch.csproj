@@ -3,6 +3,8 @@
     <TargetFramework>net6.0</TargetFramework>
     <Nullable>enable</Nullable>
     <EnableHarmony>true</EnableHarmony>
+    <!-- 本地 SMAPI 已内置同样功能，不再自动部署到游戏 Mods 目录 -->
+    <EnableModDeploy>false</EnableModDeploy>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Pathoschild.Stardew.ModBuildConfig" Version="4.*" />
